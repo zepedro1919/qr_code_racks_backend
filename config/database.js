@@ -5,12 +5,19 @@ dotenv.config();
 
 const { Pool } = pg;
 
-const pool = new Pool({
+// Configuração do pool - SSL apenas para conexões externas
+const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  ssl: {
+};
+
+// Adicionar SSL apenas se não for conexão interna do Railway
+if (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('.railway.internal')) {
+  poolConfig.ssl = {
     rejectUnauthorized: false
-  }
-});
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 // Testar conexão
 pool.connect()
