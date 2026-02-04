@@ -337,4 +337,29 @@ router.get('/quantidade-rack', async (req, res) => {
   }
 });
 
+// Eliminar registo por ID
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar se existe
+    const checkResult = await pool.query(
+      'SELECT id FROM racks_encomendas WHERE id = $1',
+      [id]
+    );
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Registo não encontrado' });
+    }
+
+    // Eliminar
+    await pool.query('DELETE FROM racks_encomendas WHERE id = $1', [id]);
+
+    res.json({ message: 'Registo eliminado com sucesso' });
+  } catch (error) {
+    console.error('Erro ao eliminar registo:', error);
+    res.status(500).json({ error: 'Erro ao eliminar registo' });
+  }
+});
+
 export default router;
