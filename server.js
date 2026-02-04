@@ -60,15 +60,40 @@ app.use(generalLimiter);
 // Trust proxy (necessário para Railway)
 app.set('trust proxy', 1);
 
+// Rota raiz - info básica
+app.get('/', (req, res) => {
+  res.json({ 
+    app: 'QR Racks API',
+    status: 'running',
+    endpoints: ['/api/health', '/api/auth/login']
+  });
+});
+
 // Rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/racks', racksRoutes);
 app.use('/api/encomendas', encomendasRoutes);
 app.use('/api/racks-encomendas', racksEncomendasRoutes);
 
-// Rota de health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Rota de health check com teste de DB
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbTest = await import('./config/database.js');
+    const result = await dbTest.default.query('SELECT NOW()');
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      dbTime: result.rows[0].now
+    });
+  } catch (error) {
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'error',
+      dbError: error.message
+    });
+  }
 });
 
 // Tratamento de erros 404
