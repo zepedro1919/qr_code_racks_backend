@@ -7,6 +7,9 @@ import authRoutes from './routes/auth.js';
 import racksRoutes from './routes/racks.js';
 import encomendasRoutes from './routes/encomendas.js';
 import racksEncomendasRoutes from './routes/racksEncomendas.js';
+import zonasRoutes from './routes/zonas.js';
+import produtosRoutes from './routes/produtos.js';
+import produtosZonaRoutes from './routes/produtosZona.js';
 
 dotenv.config();
 
@@ -74,6 +77,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/racks', racksRoutes);
 app.use('/api/encomendas', encomendasRoutes);
 app.use('/api/racks-encomendas', racksEncomendasRoutes);
+app.use('/api/zonas', zonasRoutes);
+app.use('/api/produtos', produtosRoutes);
+app.use('/api/produtos-zona', produtosZonaRoutes);
 
 // Rota de health check com teste de DB
 app.get('/api/health', async (req, res) => {

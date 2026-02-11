@@ -6,7 +6,11 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "db:init": "node db/run.js init",
+    "db:migrate": "node db/run.js migrate",
+    "db:seed": "node db/run.js seed",
+    "db:all": "node db/run.js all"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
