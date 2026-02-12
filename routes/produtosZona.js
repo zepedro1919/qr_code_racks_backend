@@ -13,8 +13,14 @@ router.get('/', async (req, res) => {
 
     let query = `
       SELECT pz.*, 
-        p.descricao, p.desenho, p.material,
-        z.nome as zona_nome, z.descricao as zona_descricao
+        p.descricao, p.desenho, p.tipo, p.largura, p.profundidade, p.altura,
+        z.nome as zona_nome, z.descricao as zona_descricao,
+        COALESCE(
+          (SELECT STRING_AGG(m.descricao, ', ' ORDER BY m.descricao)
+           FROM produtos_materiais pm2
+           INNER JOIN materiais m ON m.id = pm2.material_id
+           WHERE pm2.produto_id = p.id), ''
+        ) as materiais_texto
       FROM produtos_zona pz
       INNER JOIN produtos p ON pz.produto_id = p.id
       INNER JOIN zonas z ON pz.zona_id = z.id
@@ -26,7 +32,7 @@ router.get('/', async (req, res) => {
       params.push(zona_id);
     }
 
-    query += ' ORDER BY z.nome, p.descricao';
+    query += ' ORDER BY z.nome, p.tipo, p.descricao';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -43,8 +49,14 @@ router.get('/search', async (req, res) => {
 
     let query = `
       SELECT pz.*, 
-        p.descricao, p.desenho, p.material,
-        z.nome as zona_nome, z.descricao as zona_descricao
+        p.descricao, p.desenho, p.tipo, p.largura, p.profundidade, p.altura,
+        z.nome as zona_nome, z.descricao as zona_descricao,
+        COALESCE(
+          (SELECT STRING_AGG(m.descricao, ', ' ORDER BY m.descricao)
+           FROM produtos_materiais pm2
+           INNER JOIN materiais m ON m.id = pm2.material_id
+           WHERE pm2.produto_id = p.id), ''
+        ) as materiais_texto
       FROM produtos_zona pz
       INNER JOIN produtos p ON pz.produto_id = p.id
       INNER JOIN zonas z ON pz.zona_id = z.id
@@ -57,12 +69,17 @@ router.get('/search', async (req, res) => {
       query += ` AND (
         p.descricao ILIKE $${paramIndex}
         OR p.desenho ILIKE $${paramIndex + 1}
-        OR p.material ILIKE $${paramIndex + 2}
+        OR p.tipo ILIKE $${paramIndex + 2}
         OR z.nome ILIKE $${paramIndex + 3}
+        OR EXISTS (
+          SELECT 1 FROM produtos_materiais pm3
+          INNER JOIN materiais m3 ON m3.id = pm3.material_id
+          WHERE pm3.produto_id = p.id AND m3.descricao ILIKE $${paramIndex + 4}
+        )
       )`;
       const searchTerm = `%${q}%`;
-      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
-      paramIndex += 4;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+      paramIndex += 5;
     }
 
     if (zona_id) {
@@ -70,7 +87,7 @@ router.get('/search', async (req, res) => {
       params.push(zona_id);
     }
 
-    query += ' ORDER BY z.nome, p.descricao';
+    query += ' ORDER BY z.nome, p.tipo, p.descricao';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
