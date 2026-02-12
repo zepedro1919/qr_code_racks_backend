@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
 
     let query = `
       SELECT pz.*, 
-        p.descricao, p.desenho, p.tipo, p.largura, p.profundidade, p.altura,
+        p.descricao, p.desenho, t.descricao as tipo, p.largura, p.profundidade, p.altura,
         z.nome as zona_nome, z.descricao as zona_descricao,
         COALESCE(
           (SELECT STRING_AGG(m.descricao, ', ' ORDER BY m.descricao)
@@ -23,6 +23,7 @@ router.get('/', async (req, res) => {
         ) as materiais_texto
       FROM produtos_zona pz
       INNER JOIN produtos p ON pz.produto_id = p.id
+      INNER JOIN tipos t ON t.id = p.tipo_id
       INNER JOIN zonas z ON pz.zona_id = z.id
     `;
     const params = [];
@@ -32,7 +33,7 @@ router.get('/', async (req, res) => {
       params.push(zona_id);
     }
 
-    query += ' ORDER BY z.nome, p.tipo, p.descricao';
+    query += ' ORDER BY z.nome, t.descricao, p.descricao';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -49,7 +50,7 @@ router.get('/search', async (req, res) => {
 
     let query = `
       SELECT pz.*, 
-        p.descricao, p.desenho, p.tipo, p.largura, p.profundidade, p.altura,
+        p.descricao, p.desenho, t.descricao as tipo, p.largura, p.profundidade, p.altura,
         z.nome as zona_nome, z.descricao as zona_descricao,
         COALESCE(
           (SELECT STRING_AGG(m.descricao, ', ' ORDER BY m.descricao)
@@ -59,6 +60,7 @@ router.get('/search', async (req, res) => {
         ) as materiais_texto
       FROM produtos_zona pz
       INNER JOIN produtos p ON pz.produto_id = p.id
+      INNER JOIN tipos t ON t.id = p.tipo_id
       INNER JOIN zonas z ON pz.zona_id = z.id
       WHERE 1=1
     `;
@@ -69,7 +71,7 @@ router.get('/search', async (req, res) => {
       query += ` AND (
         p.descricao ILIKE $${paramIndex}
         OR p.desenho ILIKE $${paramIndex + 1}
-        OR p.tipo ILIKE $${paramIndex + 2}
+        OR t.descricao ILIKE $${paramIndex + 2}
         OR z.nome ILIKE $${paramIndex + 3}
         OR EXISTS (
           SELECT 1 FROM produtos_materiais pm3
@@ -87,7 +89,7 @@ router.get('/search', async (req, res) => {
       params.push(zona_id);
     }
 
-    query += ' ORDER BY z.nome, p.tipo, p.descricao';
+    query += ' ORDER BY z.nome, t.descricao, p.descricao';
 
     const result = await pool.query(query, params);
     res.json(result.rows);

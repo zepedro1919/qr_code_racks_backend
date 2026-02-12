@@ -64,26 +64,33 @@ CREATE TABLE IF NOT EXISTS racks_encomendas (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Produtos table (factory products/furniture)
+-- 6. Tipos table (product types)
+CREATE TABLE IF NOT EXISTS tipos (
+  id SERIAL PRIMARY KEY,
+  descricao VARCHAR(200) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Produtos table (factory products/furniture)
 CREATE TABLE IF NOT EXISTS produtos (
   id SERIAL PRIMARY KEY,
   descricao VARCHAR(500),
   desenho VARCHAR(100),
-  tipo VARCHAR(200) NOT NULL,
+  tipo_id INTEGER NOT NULL REFERENCES tipos(id) ON DELETE RESTRICT,
   largura NUMERIC NOT NULL,
   profundidade NUMERIC NOT NULL,
   altura NUMERIC NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Materiais table (materials used in products)
+-- 8. Materiais table (materials used in products)
 CREATE TABLE IF NOT EXISTS materiais (
   id SERIAL PRIMARY KEY,
   descricao VARCHAR(500) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Produtos_materiais table (many-to-many between produtos and materiais)
+-- 9. Produtos_materiais table (many-to-many between produtos and materiais)
 CREATE TABLE IF NOT EXISTS produtos_materiais (
   id SERIAL PRIMARY KEY,
   produto_id INTEGER NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
@@ -92,7 +99,7 @@ CREATE TABLE IF NOT EXISTS produtos_materiais (
   CONSTRAINT produtos_materiais_unique UNIQUE (produto_id, material_id)
 );
 
--- 9. Produtos_zona table (association between products and zones via picking)
+-- 10. Produtos_zona table (association between products and zones via picking)
 CREATE TABLE IF NOT EXISTS produtos_zona (
   id SERIAL PRIMARY KEY,
   produto_id INTEGER NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
@@ -105,6 +112,7 @@ CREATE TABLE IF NOT EXISTS produtos_zona (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_racks_zona_id ON racks(zona_id);
 CREATE INDEX IF NOT EXISTS idx_racks_encomendas_rack_id ON racks_encomendas(rack_id);
+CREATE INDEX IF NOT EXISTS idx_produtos_tipo_id ON produtos(tipo_id);
 CREATE INDEX IF NOT EXISTS idx_produtos_zona_produto_id ON produtos_zona(produto_id);
 CREATE INDEX IF NOT EXISTS idx_produtos_zona_zona_id ON produtos_zona(zona_id);
 CREATE INDEX IF NOT EXISTS idx_produtos_materiais_produto ON produtos_materiais(produto_id);

@@ -31,11 +31,14 @@ const setMateriais = async (client, produtoId, materialIds) => {
   }
 };
 
-// Obter todos os produtos (with materiais)
+// Obter todos os produtos (with materiais and tipo)
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM produtos ORDER BY id DESC');
-    // Attach materiais to each produto
+    const result = await pool.query(
+      `SELECT p.*, t.descricao as tipo FROM produtos p
+       INNER JOIN tipos t ON t.id = p.tipo_id
+       ORDER BY p.id DESC`
+    );
     const produtos = [];
     for (const p of result.rows) {
       const materiais = await getMateriais(p.id);
@@ -58,10 +61,11 @@ router.get('/search', async (req, res) => {
 
     const searchTerm = `%${q}%`;
     const result = await pool.query(
-      `SELECT DISTINCT p.* FROM produtos p
+      `SELECT DISTINCT p.*, t.descricao as tipo FROM produtos p
+       INNER JOIN tipos t ON t.id = p.tipo_id
        LEFT JOIN produtos_materiais pm ON pm.produto_id = p.id
        LEFT JOIN materiais m ON m.id = pm.material_id
-       WHERE p.descricao ILIKE $1 OR p.desenho ILIKE $1 OR p.tipo ILIKE $1 OR m.descricao ILIKE $1
+       WHERE p.descricao ILIKE $1 OR p.desenho ILIKE $1 OR t.descricao ILIKE $1 OR m.descricao ILIKE $1
        ORDER BY p.id DESC`,
       [searchTerm]
     );
@@ -80,7 +84,12 @@ router.get('/search', async (req, res) => {
 // Obter produto por ID
 router.get('/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM produtos WHERE id = $1', [req.params.id]);
+    const result = await pool.query(
+      `SELECT p.*, t.descricao as tipo FROM produtos p
+       INNER JOIN tipos t ON t.id = p.tipo_id
+       WHERE p.id = $1`,
+      [req.params.id]
+    );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Produto não encontrado' });
     }
@@ -92,12 +101,12 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Helper: check if a product with the same (tipo, l, p, a, materials set) already exists
+// Helper: check if a product with the same (tipo_id, l, p, a, materials set) already exists
 // Returns the existing product id or null
-const checkDuplicate = async (client, tipo, largura, profundidade, altura, materialIds, excludeId = null) => {
-  // Find all products with same tipo + dimensions
-  let query = `SELECT id FROM produtos WHERE tipo = $1 AND largura = $2 AND profundidade = $3 AND altura = $4`;
-  const params = [tipo.trim(), parseFloat(largura), parseFloat(profundidade), parseFloat(altura)];
+const checkDuplicate = async (client, tipoId, largura, profundidade, altura, materialIds, excludeId = null) => {
+  // Find all products with same tipo_id + dimensions
+  let query = `SELECT id FROM produtos WHERE tipo_id = $1 AND largura = $2 AND profundidade = $3 AND altura = $4`;
+  const params = [parseInt(tipoId), parseFloat(largura), parseFloat(profundidade), parseFloat(altura)];
   if (excludeId) {
     query += ` AND id != $5`;
     params.push(excludeId);
@@ -126,15 +135,15 @@ const checkDuplicate = async (client, tipo, largura, profundidade, altura, mater
 router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { descricao, desenho, tipo, largura, profundidade, altura, material_ids } = req.body;
+    const { descricao, desenho, tipo_id, largura, profundidade, altura, material_ids } = req.body;
 
     // Validate required fields
-    if (!tipo || largura === undefined || profundidade === undefined || altura === undefined) {
+    if (!tipo_id || largura === undefined || profundidade === undefined || altura === undefined) {
       return res.status(400).json({ error: 'Campos obrigatórios: tipo, largura, profundidade, altura' });
     }
 
-    // Check full uniqueness: tipo + l + p + a + materials set
-    const existingId = await checkDuplicate(client, tipo, largura, profundidade, altura, material_ids || []);
+    // Check full uniqueness: tipo_id + l + p + a + materials set
+    const existingId = await checkDuplicate(client, tipo_id, largura, profundidade, altura, material_ids || []);
     if (existingId) {
       return res.status(409).json({ 
         error: 'Já existe um produto com este tipo, dimensões e materiais',
@@ -145,12 +154,12 @@ router.post('/', async (req, res) => {
     await client.query('BEGIN');
 
     const result = await client.query(
-      `INSERT INTO produtos (descricao, desenho, tipo, largura, profundidade, altura) 
+      `INSERT INTO produtos (descricao, desenho, tipo_id, largura, profundidade, altura) 
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [
         descricao || null,
         desenho || null,
-        tipo.trim(),
+        parseInt(tipo_id),
         parseFloat(largura),
         parseFloat(profundidade),
         parseFloat(altura)
@@ -181,15 +190,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const client = await pool.connect();
   try {
-    const { descricao, desenho, tipo, largura, profundidade, altura, material_ids } = req.body;
+    const { descricao, desenho, tipo_id, largura, profundidade, altura, material_ids } = req.body;
     const { id } = req.params;
 
-    if (!tipo || largura === undefined || profundidade === undefined || altura === undefined) {
+    if (!tipo_id || largura === undefined || profundidade === undefined || altura === undefined) {
       return res.status(400).json({ error: 'Campos obrigatórios: tipo, largura, profundidade, altura' });
     }
 
-    // Check full uniqueness excluding self: tipo + l + p + a + materials set
-    const existingId = await checkDuplicate(client, tipo, largura, profundidade, altura, material_ids || [], id);
+    // Check full uniqueness excluding self: tipo_id + l + p + a + materials set
+    const existingId = await checkDuplicate(client, tipo_id, largura, profundidade, altura, material_ids || [], id);
     if (existingId) {
       return res.status(409).json({ error: 'Já existe outro produto com este tipo, dimensões e materiais' });
     }
@@ -197,12 +206,12 @@ router.put('/:id', async (req, res) => {
     await client.query('BEGIN');
 
     const result = await client.query(
-      `UPDATE produtos SET descricao = $1, desenho = $2, tipo = $3, largura = $4, profundidade = $5, altura = $6
+      `UPDATE produtos SET descricao = $1, desenho = $2, tipo_id = $3, largura = $4, profundidade = $5, altura = $6
        WHERE id = $7 RETURNING *`,
       [
         descricao || null,
         desenho || null,
-        tipo.trim(),
+        parseInt(tipo_id),
         parseFloat(largura),
         parseFloat(profundidade),
         parseFloat(altura),
